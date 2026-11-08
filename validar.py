@@ -19,3 +19,9 @@ def string (texto: str):
         return True
     else:
         return False
+
+def texto_valido(texto: str, maximo: int = 32):
+    if 0 < len(texto.strip()) <= maximo:
+        return True
+    else:
+        return False

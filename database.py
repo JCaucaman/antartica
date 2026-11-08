@@ -1,7 +1,10 @@
 import matplotlib.pyplot as plt
 import pymysql.cursors
 
-from validar import fechas, integer, string
+from validar import fechas, integer, string, texto_valido
+
+TIPOS_MUESTRA = ["Biológica", "Geológica", "Climática", "Sin clasificar"]
+ESTADOS_CONSERVACION = ["Congelada", "Refrigerada", "Estable", "Deterioro leve", "Deteriorada"]
 
 def conectar():
     return pymysql.connect(
@@ -22,6 +25,39 @@ def imprimir_tabla(filas):
     print("  " + "-+-".join("-" * anchos[c] for c in columnas))
     for f in filas:
         print("  " + " | ".join(str(f[c]).ljust(anchos[c]) for c in columnas))
+
+def pedir_entero(mensaje, nombre):
+    """Pide un número entero y repite la pregunta hasta que sea válido."""
+    valor = input(mensaje)
+
+    while not integer(valor):
+        print(f"Error: {nombre} no es un número entero.")
+        valor = input(mensaje)
+
+    return int(valor)
+
+def pedir_fecha(mensaje, nombre):
+    """Pide una fecha YYYY-MM-DD y repite la pregunta hasta que sea válida."""
+    valor = input(mensaje)
+
+    while not fechas(valor):
+        print(f"Error: {nombre} no es válida.")
+        valor = input(mensaje)
+
+    return valor
+
+def elegir_opcion(mensaje, opciones):
+    """Muestra una lista numerada y devuelve el texto de la opción elegida."""
+    for numero, opcion in enumerate(opciones, start=1):
+        print(f"  {numero}. {opcion}")
+
+    eleccion = pedir_entero(mensaje, "La opción")
+
+    while not 1 <= eleccion <= len(opciones):
+        print("Error: La opción está fuera de rango.")
+        eleccion = pedir_entero(mensaje, "La opción")
+
+    return opciones[eleccion - 1]
 
 def listar_expediciones() -> list:
     conexion = conectar()
@@ -121,9 +157,11 @@ def consultar_participantes_expedicion():
                 (id_expedicion,),
             )
 
-            imprimir_tabla(cursor.fetchall())
+            datos = cursor.fetchall()
 
-            return cursor.fetchall()
+        imprimir_tabla(datos)
+
+        return datos
     finally:
         conexion.close()
 
@@ -160,6 +198,334 @@ def graficar_expediciones_por_año():
         plt.ylabel("Cantidad de Expediciones")
         plt.title("Cantidad de Expediciones por Año")
         plt.show()
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# =====================================================================
+# MUESTRAS (SELECT / INSERT / UPDATE / DELETE)
+# =====================================================================
+
+def listar_muestras() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT m.ID_MUESTRA AS id, m.MST_TIPO_MUESTRA AS tipo, m.MST_DESCRIPCION AS descripcion,
+                       m.MST_ESTADO_CONSERVACION AS estado, p.PER_NOMBRE AS responsable
+                FROM MUESTRA AS m LEFT JOIN PERSONAL AS p ON p.ID_PERSONAL = m.MST_FK_PERSONAL
+                ORDER BY m.ID_MUESTRA"""
+            )
+            datos = cursor.fetchall()
+
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+def registrar_muestra():
+    mst_descripcion = input("Ingrese la descripción de la muestra (máximo 32 caracteres): ")
+
+    while not texto_valido(mst_descripcion, 32):
+        print("Error: La descripción es obligatoria y de máximo 32 caracteres.")
+        mst_descripcion = input("Ingrese la descripción de la muestra (máximo 32 caracteres): ")
+
+    mst_descripcion = mst_descripcion.strip()
+
+    mst_fk_personal = pedir_entero("Ingrese el ID del personal responsable: ", "El ID del personal")
+
+    print("Tipo de muestra:")
+    mst_tipo_muestra = elegir_opcion("Seleccione el tipo: ", TIPOS_MUESTRA)
+
+    print("Estado de conservación:")
+    mst_estado_conservacion = elegir_opcion("Seleccione el estado: ", ESTADOS_CONSERVACION)
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT ID_PERSONAL FROM PERSONAL WHERE ID_PERSONAL = %s", (mst_fk_personal,))
+
+            if cursor.fetchone() is None:
+                print(f"Error: No existe el personal {mst_fk_personal}.")
+                return None
+
+            # La tabla MUESTRA no tiene AUTO_INCREMENT: se calcula el siguiente ID
+            cursor.execute("SELECT COALESCE(MAX(ID_MUESTRA), 0) + 1 AS nuevo FROM MUESTRA")
+            id_muestra = cursor.fetchone()["nuevo"]
+
+            cursor.execute(
+                """INSERT INTO MUESTRA (ID_MUESTRA, MST_ESTADO_CONSERVACION, MST_DESCRIPCION, MST_TIPO_MUESTRA, MST_FK_PERSONAL) VALUES
+                (%s, %s, %s, %s, %s)""",
+                (
+                    id_muestra,
+                    mst_estado_conservacion,
+                    mst_descripcion,
+                    mst_tipo_muestra,
+                    mst_fk_personal,
+                ),
+            )
+            conexion.commit()
+            print(f"Muestra {id_muestra} registrada exitosamente.")
+
+            return {
+                "id_muestra": id_muestra,
+                "mst_estado_conservacion": mst_estado_conservacion,
+                "mst_descripcion": mst_descripcion,
+                "mst_tipo_muestra": mst_tipo_muestra,
+                "mst_fk_personal": mst_fk_personal,
+            }
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+
+def actualizar_estado_muestra():
+    listar_muestras()
+    id_muestra = pedir_entero("Ingrese el ID de la muestra: ", "El ID de la muestra")
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT ID_MUESTRA FROM MUESTRA WHERE ID_MUESTRA = %s", (id_muestra,))
+
+            if cursor.fetchone() is None:
+                print(f"Error: No existe la muestra {id_muestra}.")
+                return None
+
+            print("Nuevo estado de conservación:")
+            nuevo_estado = elegir_opcion("Seleccione el estado: ", ESTADOS_CONSERVACION)
+
+            cursor.execute(
+                "UPDATE MUESTRA SET MST_ESTADO_CONSERVACION = %s WHERE ID_MUESTRA = %s",
+                (nuevo_estado, id_muestra),
+            )
+            conexion.commit()
+            print(f"Estado de la muestra {id_muestra} actualizado a '{nuevo_estado}'.")
+
+            return nuevo_estado
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+
+def eliminar_muestra():
+    listar_muestras()
+    id_muestra = pedir_entero("Ingrese el ID de la muestra a eliminar: ", "El ID de la muestra")
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT ID_MUESTRA FROM MUESTRA WHERE ID_MUESTRA = %s", (id_muestra,))
+
+            if cursor.fetchone() is None:
+                print(f"Error: No existe la muestra {id_muestra}.")
+                return None
+
+            cursor.execute(
+                "SELECT COUNT(*) AS total FROM REGISTRO_MUESTRA WHERE RM_FK_MUESTRA = %s",
+                (id_muestra,),
+            )
+
+            if cursor.fetchone()["total"] > 0:
+                print("Error: La muestra tiene recolecciones registradas, no se puede eliminar.")
+                return None
+
+            confirmacion = input(f"¿Confirma eliminar la muestra {id_muestra}? (s/n): ").strip().lower()
+
+            if confirmacion != "s":
+                print("Operación cancelada.")
+                return None
+
+            cursor.execute("DELETE FROM MUESTRA WHERE ID_MUESTRA = %s", (id_muestra,))
+            conexion.commit()
+            print(f"Muestra con ID {id_muestra} eliminada exitosamente.")
+
+            return id_muestra
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+
+# =====================================================================
+# REGISTRO DE RECOLECCIÓN EN TERRENO (INSERT con validaciones)
+# =====================================================================
+
+def registrar_recoleccion():
+    listar_expediciones()
+    id_expedicion = pedir_entero("Ingrese el ID de la expedición: ", "El ID de la expedición")
+    id_personal = pedir_entero("Ingrese el ID del personal responsable: ", "El ID del personal")
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                "SELECT EXP_FK_BASE FROM EXPEDICION WHERE ID_EXPEDICION = %s", (id_expedicion,)
+            )
+            expedicion = cursor.fetchone()
+
+            if expedicion is None:
+                print(f"Error: No existe la expedición {id_expedicion}.")
+                return None
+
+            # El responsable debe ser participante de la expedición
+            cursor.execute(
+                "SELECT 1 FROM PERSONAL_PARTICIPAR WHERE ID_EXPEDICION = %s AND ID_PERSONAL = %s",
+                (id_expedicion, id_personal),
+            )
+
+            if cursor.fetchone() is None:
+                print(f"Error: El personal {id_personal} no participa en la expedición {id_expedicion}.")
+                return None
+
+            # El sector debe pertenecer a la base donde se realiza la expedición
+            id_base = expedicion["EXP_FK_BASE"]
+            cursor.execute(
+                """SELECT ID_SECTOR AS id, SCT_NOMBRE_SECTOR AS sector, SCT_NIVEL_ACCESO AS acceso
+                FROM SECTOR WHERE SCT_FK_BASE = %s ORDER BY ID_SECTOR""",
+                (id_base,),
+            )
+            sectores = cursor.fetchall()
+
+            if not sectores:
+                print("Error: La base de la expedición no tiene sectores registrados.")
+                return None
+
+            print("Sectores disponibles en la base de la expedición:")
+            imprimir_tabla(sectores)
+            id_sector = pedir_entero("Ingrese el ID del sector: ", "El ID del sector")
+
+            if id_sector not in [sector["id"] for sector in sectores]:
+                print(f"Error: El sector {id_sector} no pertenece a la base de la expedición.")
+                return None
+
+            listar_muestras()
+            id_muestra = pedir_entero("Ingrese el ID de la muestra: ", "El ID de la muestra")
+
+            cursor.execute("SELECT ID_MUESTRA FROM MUESTRA WHERE ID_MUESTRA = %s", (id_muestra,))
+
+            if cursor.fetchone() is None:
+                print(f"Error: No existe la muestra {id_muestra}.")
+                return None
+
+            rm_fecha_recoleccion = pedir_fecha(
+                "Ingrese la fecha de recolección (YYYY-MM-DD): ", "La fecha de recolección"
+            )
+
+            # ID_RECOLECION se numera dentro de cada expedición
+            cursor.execute(
+                "SELECT COALESCE(MAX(ID_RECOLECION), 0) + 1 AS nuevo FROM REGISTRO_MUESTRA WHERE ID_EXPEDICION = %s",
+                (id_expedicion,),
+            )
+            id_recoleccion = cursor.fetchone()["nuevo"]
+
+            cursor.execute(
+                """INSERT INTO REGISTRO_MUESTRA (ID_RECOLECION, ID_EXPEDICION, RM_FECHA_RECOLECCION, RM_FK_PERSONAL_RESPONTABLE, RM_FK_BASE, RM_FK_SECTOR, RM_FK_MUESTRA) VALUES
+                (%s, %s, %s, %s, %s, %s, %s)""",
+                (
+                    id_recoleccion,
+                    id_expedicion,
+                    rm_fecha_recoleccion,
+                    id_personal,
+                    id_base,
+                    id_sector,
+                    id_muestra,
+                ),
+            )
+            conexion.commit()
+            print(f"Recolección {id_recoleccion} registrada exitosamente en la expedición {id_expedicion}.")
+
+            return {
+                "id_recoleccion": id_recoleccion,
+                "id_expedicion": id_expedicion,
+                "rm_fecha_recoleccion": rm_fecha_recoleccion,
+                "rm_fk_personal_responsable": id_personal,
+                "rm_fk_base": id_base,
+                "rm_fk_sector": id_sector,
+                "rm_fk_muestra": id_muestra,
+            }
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()
+
+
+# =====================================================================
+# REPORTES (procedimientos almacenados invocados con CALL)
+# =====================================================================
+
+def consultar_resumen_expedicion():
+    listar_expediciones()
+    id_expedicion = pedir_entero("Ingrese el ID de la expedición: ", "El ID de la expedición")
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("CALL sp_resumen_expedicion(%s)", (id_expedicion,))
+            datos = cursor.fetchall()
+
+        if not datos:
+            print(f"Error: No existe la expedición {id_expedicion}.")
+            return None
+
+        for clave, valor in datos[0].items():
+            print(f"  {clave:<22}: {valor}")
+
+        return datos[0]
+    finally:
+        conexion.close()
+
+
+def consultar_muestras_por_tipo() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("CALL sp_muestras_por_tipo()")
+            datos = cursor.fetchall()
+
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+def consultar_recolecciones_por_base() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("CALL sp_recolecciones_por_base()")
+            datos = cursor.fetchall()
+
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+def consultar_historial_personal() -> list:
+    id_personal = pedir_entero("Ingrese el ID del personal: ", "El ID del personal")
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("CALL sp_historial_personal(%s)", (id_personal,))
+            datos = cursor.fetchall()
+
+        print(f"Historial de expediciones del personal {id_personal}:")
+        imprimir_tabla(datos)
 
         return datos
     finally:

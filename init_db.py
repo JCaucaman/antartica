@@ -28,18 +28,55 @@ def tablas_existen(cursor):
     return len(cursor.fetchall()) > 0
 
 
+def datos_existen(cursor):
+    cursor.execute("SELECT COUNT(*) AS total FROM PAIS")
+    return cursor.fetchone()["total"] > 0
+
+
+def separar_sentencias(sql_script):
+    """
+    Divide un script SQL en sentencias respetando DELIMITER.
+    (DELIMITER es un comando del cliente MySQL, no del servidor: por eso
+    Python debe interpretarlo para poder crear los procedimientos, que
+    llevan ';' dentro de BEGIN ... END.)
+    """
+    delimitador = ";"
+    sentencias = []
+    actual = []
+
+    for linea in sql_script.splitlines():
+        limpia = linea.strip()
+
+        if not actual and (not limpia or limpia.startswith("--")):
+            continue
+
+        if limpia.upper().startswith("DELIMITER"):
+            delimitador = limpia.split()[1]
+            continue
+
+        actual.append(linea)
+
+        if limpia.endswith(delimitador):
+            sentencia = "\n".join(actual).strip()
+            sentencias.append(sentencia[: -len(delimitador)].strip())
+            actual = []
+
+    if "".join(actual).strip():
+        sentencias.append("\n".join(actual).strip())
+
+    return sentencias
+
+
 def ejecutar_script(cursor, ruta):
     with open(ruta, "r", encoding="utf-8") as f:
         sql_script = f.read()
 
-    for sentencia in sql_script.split(";"):
-        sentencia = sentencia.strip()
-        if sentencia:
-            cursor.execute(sentencia)
+    for sentencia in separar_sentencias(sql_script):
+        cursor.execute(sentencia)
 
 
 def crear_tablas():
-    """Crea las tablas e inserta los datos iniciales, solo si la BD está vacía."""
+    """Crea las tablas, solo si la BD está vacía."""
     connection = conectar_not_with_bd()
     try:
         with connection.cursor() as cursor:
@@ -52,18 +89,18 @@ def crear_tablas():
             ejecutar_script(cursor, RUTA_SQL)
 
         connection.commit()
-        print("Tablas y datos iniciales creados.")
+        print("Tablas creadas.")
     finally:
         connection.close()
 
 def crear_datos():
-    """Inserta los datos iniciales, solo si la BD está vacía."""
+    """Inserta los datos iniciales, solo si las tablas están vacías."""
     connection = conectar_not_with_bd()
     try:
         with connection.cursor() as cursor:
             cursor.execute("USE antartida")
 
-            if tablas_existen(cursor):
+            if datos_existen(cursor):
                 print("Las tablas ya tienen datos, se omite la carga inicial.")
                 return
 
@@ -74,13 +111,13 @@ def crear_datos():
     finally:
         connection.close()
 
+
 def crear_procedimientos():
-    """Crea los procedimientos almacenados, solo si la BD está vacía."""
+    """Crea los procedimientos almacenados (si ya existían los vuelve a crear)."""
     connection = conectar_not_with_bd()
     try:
         with connection.cursor() as cursor:
             cursor.execute("USE antartida")
-
             ejecutar_script(cursor, RUTA_SQL_PROCEDIMIENTOS)
 
         connection.commit()

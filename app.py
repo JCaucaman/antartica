@@ -1,6 +1,20 @@
-from database import delete_expedicion, listar_expediciones, registrar_expedicion, consultar_participantes_expedicion, graficar_expediciones_por_año
+from database import (
+    actualizar_estado_muestra,
+    consultar_historial_personal,
+    consultar_muestras_por_tipo,
+    consultar_participantes_expedicion,
+    consultar_recolecciones_por_base,
+    consultar_resumen_expedicion,
+    delete_expedicion,
+    eliminar_muestra,
+    graficar_expediciones_por_año,
+    listar_expediciones,
+    listar_muestras,
+    registrar_expedicion,
+    registrar_muestra,
+    registrar_recoleccion,
+)
 from init_db import crear_base_de_datos_y_tablas
-
 
 while True:
     print("""
@@ -14,9 +28,19 @@ SISTEMA DE EXPEDICIONES EN LA ANTARTICA:
 4. Consultar participantes por expedición
 5. Graficar expediciones por año
 6. Eliminar expedición
-7. Salir
+7. Listar muestras
+8. Registrar muestra
+9. Registrar recolección en terreno
+10. Actualizar estado de una muestra
+11. Eliminar muestra
+12. Resumen de una expedición (procedimiento)
+13. Muestras por tipo (procedimiento)
+14. Recolecciones por base y sector (procedimiento)
+15. Historial de expediciones de un integrante (procedimiento)
+16. Salir
 =========================================
 """)
+    
     opcion = input("Seleccione una opción:")
 
     if opcion == "1":
@@ -39,6 +63,33 @@ SISTEMA DE EXPEDICIONES EN LA ANTARTICA:
         delete_expedicion()
 
     elif opcion == "7":
+        listar_muestras()
+
+    elif opcion == "8":
+        registrar_muestra()
+
+    elif opcion == "9":
+        registrar_recoleccion()
+
+    elif opcion == "10":
+        actualizar_estado_muestra()
+
+    elif opcion == "11":
+        eliminar_muestra()
+
+    elif opcion == "12":
+        consultar_resumen_expedicion()
+
+    elif opcion == "13":
+        consultar_muestras_por_tipo()
+
+    elif opcion == "14":
+        consultar_recolecciones_por_base()
+
+    elif opcion == "15":
+        consultar_historial_personal()
+
+    elif opcion == "16":
         print("Saliendo del sistema...")
         break
 
