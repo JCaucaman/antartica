@@ -2,6 +2,7 @@ import pymysql.cursors
 
 RUTA_SQL = "C:\\dev\\work-space-1\\antartica\\db\\FreeSQL-demo (3).sql"
 RUTA_SQL_DATOS = "C:\\dev\\work-space-1\\antartica\\db\\datos_iniciales.sql"
+RUTA_SQL_PROCEDIMIENTOS = "C:\\dev\\work-space-1\\antartica\\db\\03_procedimientos.sql"
 
 def conectar_not_with_bd():
     return pymysql.connect(
@@ -73,8 +74,23 @@ def crear_datos():
     finally:
         connection.close()
 
+def crear_procedimientos():
+    """Crea los procedimientos almacenados, solo si la BD está vacía."""
+    connection = conectar_not_with_bd()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("USE antartida")
+
+            ejecutar_script(cursor, RUTA_SQL_PROCEDIMIENTOS)
+
+        connection.commit()
+        print("Procedimientos almacenados creados.")
+    finally:
+        connection.close()
+
 
 def crear_base_de_datos_y_tablas():
     createdb()
     crear_tablas()
     crear_datos()
+    crear_procedimientos()
