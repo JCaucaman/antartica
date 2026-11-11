@@ -1,8 +1,9 @@
 import pymysql.cursors
 
 RUTA_SQL = "C:\\dev\\work-space-1\\antartica\\db\\FreeSQL-demo (3).sql"
-RUTA_SQL_DATOS = "C:\\dev\\work-space-1\\antartica\\db\\datos_iniciales.sql"
+RUTA_SQL_DATOS = "C:\\dev\\work-space-1\\antartica\\db\\datos_antartida.sql"
 RUTA_SQL_PROCEDIMIENTOS = "C:\\dev\\work-space-1\\antartica\\db\\03_procedimientos.sql"
+RUTA_SQL_REQUERIMIENTOS = "C:\\dev\\work-space-1\\antartica\\db\\04_vistas_procedimientos_R1_R12.sql"
 
 def conectar_not_with_bd():
     return pymysql.connect(
@@ -126,8 +127,23 @@ def crear_procedimientos():
         connection.close()
 
 
+def crear_requerimientos():
+    """Crea las 6 vistas y los 6 procedimientos de los requerimientos R1 a R12 (si ya existían los vuelve a crear)."""
+    connection = conectar_not_with_bd()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("USE antartida")
+            ejecutar_script(cursor, RUTA_SQL_REQUERIMIENTOS)
+
+        connection.commit()
+        print("Vistas y procedimientos de los requerimientos R1 a R12 creados.")
+    finally:
+        connection.close()
+
+
 def crear_base_de_datos_y_tablas():
     createdb()
     crear_tablas()
     crear_datos()
     crear_procedimientos()
+    crear_requerimientos()

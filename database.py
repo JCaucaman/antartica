@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import matplotlib.pyplot as plt
 import pymysql.cursors
 
@@ -525,6 +527,268 @@ def consultar_historial_personal() -> list:
             datos = cursor.fetchall()
 
         print(f"Historial de expediciones del personal {id_personal}:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# =====================================================================
+# REQUERIMIENTOS DE INFORMACIÓN R1 A R12 (vistas y procedimientos)
+# =====================================================================
+
+def pedir_rango_fechas():
+    """Pide fecha de inicio y de término, y repite hasta que el inicio no sea posterior al término."""
+    fecha_inicio = pedir_fecha("Ingrese la fecha de inicio (YYYY-MM-DD): ", "La fecha de inicio")
+    fecha_termino = pedir_fecha("Ingrese la fecha de término (YYYY-MM-DD): ", "La fecha de término")
+
+    while datetime.strptime(fecha_inicio, "%Y-%m-%d") > datetime.strptime(fecha_termino, "%Y-%m-%d"):
+        print("Error: La fecha de inicio no puede ser posterior a la fecha de término.")
+        fecha_inicio = pedir_fecha("Ingrese la fecha de inicio (YYYY-MM-DD): ", "La fecha de inicio")
+        fecha_termino = pedir_fecha("Ingrese la fecha de término (YYYY-MM-DD): ", "La fecha de término")
+
+    return fecha_inicio, fecha_termino
+
+
+def listar_bases() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT b.ID_BASE AS id, b.BS_NOMBRE_BASE AS base, p.PS_NOMBRE_OFICIAL AS pais
+                FROM BASE_PAIS AS b INNER JOIN PAIS AS p ON p.ID_PAIS = b.BS_FK_PAIS
+                ORDER BY b.ID_BASE"""
+            )
+            datos = cursor.fetchall()
+
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+def pedir_base():
+    """Muestra las bases, pide el ID de una y repite la pregunta hasta que exista."""
+    bases = listar_bases()
+    id_base = pedir_entero("Ingrese el ID de la base: ", "El ID de la base")
+
+    while id_base not in [base["id"] for base in bases]:
+        print(f"Error: No existe la base {id_base}.")
+        id_base = pedir_entero("Ingrese el ID de la base: ", "El ID de la base")
+
+    return id_base
+
+
+# R1 (procedimiento)
+def consultar_r1_bases_mas_expediciones() -> list:
+    fecha_inicio, fecha_termino = pedir_rango_fechas()
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("CALL sp_r1_bases_mas_expediciones(%s, %s)", (fecha_inicio, fecha_termino))
+            datos = cursor.fetchall()
+
+        print(f"R1 - Bases con más expediciones entre {fecha_inicio} y {fecha_termino}:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R2 (vista)
+def consultar_r2_distribucion_muestras() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM vw_r2_distribucion_muestras_clasificadas ORDER BY base, sector, recolecciones DESC;"
+            )
+            datos = cursor.fetchall()
+
+        print("R2 - Distribución de muestras clasificadas por base y sector:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R3 (vista)
+def consultar_r3_duracion_vs_evaluacion() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT * FROM vw_r3_duracion_vs_evaluacion ORDER BY expedicion;")
+            datos = cursor.fetchall()
+
+        print("R3 - Duración de cada expedición y su evaluación promedio:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R4 (procedimiento)
+def consultar_r4_paises_expediciones_participantes() -> list:
+    fecha_inicio, fecha_termino = pedir_rango_fechas()
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                "CALL sp_r4_paises_expediciones_participantes(%s, %s)", (fecha_inicio, fecha_termino)
+            )
+            datos = cursor.fetchall()
+
+        print(f"R4 - Países con más expediciones y participantes entre {fecha_inicio} y {fecha_termino}:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R5 (vista)
+def consultar_r5_ocupacion_bases() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT * FROM vw_r5_ocupacion_bases;")
+            datos = cursor.fetchall()
+
+        print("R5 - Tasa de ocupación de participantes por base:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R6 (vista)
+def consultar_r6_tipos_por_base_sector() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM vw_r6_tipos_por_base_sector ORDER BY base, sector, posicion_en_sector;"
+            )
+            datos = cursor.fetchall()
+
+        print("R6 - Recolecciones por tipo de muestra en cada base y sector:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R7 (vista)
+def consultar_r7_diversidad_sectores() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT * FROM vw_r7_diversidad_sectores;")
+            datos = cursor.fetchall()
+
+        print("R7 - Diversidad de muestras recolectadas por sector:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R8 (vista)
+def consultar_r8_participantes_frecuentes() -> list:
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("SELECT * FROM vw_r8_participantes_frecuentes;")
+            datos = cursor.fetchall()
+
+        print("R8 - Participantes con más expediciones y su evaluación promedio:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R9 (procedimiento)
+def consultar_r9_expediciones_sobre_promedio_base() -> list:
+    id_base = pedir_base()
+    fecha_inicio, fecha_termino = pedir_rango_fechas()
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute(
+                "CALL sp_r9_expediciones_sobre_promedio_base(%s, %s, %s)",
+                (id_base, fecha_inicio, fecha_termino),
+            )
+            datos = cursor.fetchall()
+
+        print(f"R9 - Expediciones de la base {id_base} sobre la duración promedio entre {fecha_inicio} y {fecha_termino}:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R10 (procedimiento)
+def consultar_r10_sectores_sobre_promedio_base() -> list:
+    id_base = pedir_base()
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("CALL sp_r10_sectores_sobre_promedio_base(%s)", (id_base,))
+            datos = cursor.fetchall()
+
+        print(f"R10 - Sectores de la base {id_base} con más muestras que el promedio de sus sectores:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R11 (procedimiento)
+def consultar_r11_participantes_sobre_promedio() -> list:
+    fecha_inicio, fecha_termino = pedir_rango_fechas()
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("CALL sp_r11_participantes_sobre_promedio(%s, %s)", (fecha_inicio, fecha_termino))
+            datos = cursor.fetchall()
+
+        print(f"R11 - Participantes sobre el promedio de expediciones y de evaluación entre {fecha_inicio} y {fecha_termino}:")
+        imprimir_tabla(datos)
+
+        return datos
+    finally:
+        conexion.close()
+
+
+# R12 (procedimiento)
+def consultar_r12_bases_duracion_sobre_promedio() -> list:
+    fecha_inicio, fecha_termino = pedir_rango_fechas()
+
+    conexion = conectar()
+    try:
+        with conexion.cursor() as cursor:
+            cursor.execute("CALL sp_r12_bases_duracion_sobre_promedio(%s, %s)", (fecha_inicio, fecha_termino))
+            datos = cursor.fetchall()
+
+        print(f"R12 - Bases con duración promedio sobre el promedio general entre {fecha_inicio} y {fecha_termino}:")
         imprimir_tabla(datos)
 
         return datos

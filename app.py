@@ -3,6 +3,18 @@ from database import (
     consultar_historial_personal,
     consultar_muestras_por_tipo,
     consultar_participantes_expedicion,
+    consultar_r1_bases_mas_expediciones,
+    consultar_r2_distribucion_muestras,
+    consultar_r3_duracion_vs_evaluacion,
+    consultar_r4_paises_expediciones_participantes,
+    consultar_r5_ocupacion_bases,
+    consultar_r6_tipos_por_base_sector,
+    consultar_r7_diversidad_sectores,
+    consultar_r8_participantes_frecuentes,
+    consultar_r9_expediciones_sobre_promedio_base,
+    consultar_r10_sectores_sobre_promedio_base,
+    consultar_r11_participantes_sobre_promedio,
+    consultar_r12_bases_duracion_sobre_promedio,
     consultar_recolecciones_por_base,
     consultar_resumen_expedicion,
     delete_expedicion,
@@ -37,10 +49,25 @@ SISTEMA DE EXPEDICIONES EN LA ANTARTICA:
 13. Muestras por tipo (procedimiento)
 14. Recolecciones por base y sector (procedimiento)
 15. Historial de expediciones de un integrante (procedimiento)
-16. Salir
+
+REQUERIMIENTOS DE INFORMACIÓN:
+16. R1  Bases con más expediciones en un período (procedimiento)
+17. R2  Distribución de muestras clasificadas (vista)
+18. R3  Duración de expedición vs evaluación promedio (vista)
+19. R4  Países con más expediciones y participantes (procedimiento)
+20. R5  Ocupación de participantes por base (vista)
+21. R6  Tipos de muestra por base y sector (vista)
+22. R7  Diversidad de muestras por sector (vista)
+23. R8  Participantes con más expediciones (vista)
+24. R9  Expediciones sobre el promedio de su base (procedimiento)
+25. R10 Sectores sobre el promedio de su base (procedimiento)
+26. R11 Participantes sobre el promedio (procedimiento)
+27. R12 Bases con duración sobre el promedio (procedimiento)
+
+28. Salir
 =========================================
 """)
-    
+
     opcion = input("Seleccione una opción:")
 
     if opcion == "1":
@@ -90,6 +117,42 @@ SISTEMA DE EXPEDICIONES EN LA ANTARTICA:
         consultar_historial_personal()
 
     elif opcion == "16":
+        consultar_r1_bases_mas_expediciones()
+
+    elif opcion == "17":
+        consultar_r2_distribucion_muestras()
+
+    elif opcion == "18":
+        consultar_r3_duracion_vs_evaluacion()
+
+    elif opcion == "19":
+        consultar_r4_paises_expediciones_participantes()
+
+    elif opcion == "20":
+        consultar_r5_ocupacion_bases()
+
+    elif opcion == "21":
+        consultar_r6_tipos_por_base_sector()
+
+    elif opcion == "22":
+        consultar_r7_diversidad_sectores()
+
+    elif opcion == "23":
+        consultar_r8_participantes_frecuentes()
+
+    elif opcion == "24":
+        consultar_r9_expediciones_sobre_promedio_base()
+
+    elif opcion == "25":
+        consultar_r10_sectores_sobre_promedio_base()
+
+    elif opcion == "26":
+        consultar_r11_participantes_sobre_promedio()
+
+    elif opcion == "27":
+        consultar_r12_bases_duracion_sobre_promedio()
+
+    elif opcion == "28":
         print("Saliendo del sistema...")
         break
 
